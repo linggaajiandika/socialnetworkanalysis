@@ -1,0 +1,44 @@
+body {
+    font-family: 'Source Sans Pro', sans-serif;
+    font-weight: 300;
+    text-align: center;
+    color: #000000;
+    text:white;
+  }
+  
+  svg {
+    background-color: #252525;
+    border: 0.5px dotted #626262;
+  }
+  
+  a {
+    color: #3EB5C4;
+  }
+  
+  b {
+    font-weight: 900;
+  }
+  
+  .node {
+    stroke: silver;
+    stroke-width: 1px;
+  }
+  
+  .link {
+    fill: none;
+    stroke: silver;
+    stroke-opacity: 0.4;
+  }
+  
+  .selected {
+    stroke: red !important;
+    stroke-opacity: 1;
+  }
+  
+  /* shadow trick from bl.ocks.org */
+  #tooltip {
+    font-size: 10pt;
+    font-weight: 900;
+    fill: white;
+    text-shadow: 1px 1px 0 #252525, 1px -1px 0 #252525, -1px 1px 0 #252525, -1px -1px 0 #252525;
+  }

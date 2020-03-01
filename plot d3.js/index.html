@@ -1,0 +1,42 @@
+<meta charset="utf-8">
+<style>
+
+body {
+  text-align: center;
+  font-family: arial;
+  background-color: black;
+}
+
+.links line {
+  stroke: #999;
+  stroke-opacity: 0.6;
+}
+
+.nodes circle {
+  stroke: #fff;
+  stroke-width: 1.5px;
+}
+
+div.tooltip {
+    position: absolute;
+    text-align: center;
+    width: 80px;
+    line-height: 40px;
+    padding: 2px;
+    font: 12px sans-serif;
+    background: gold;
+    border: 0px;
+    border-radius: 8px;
+    pointer-events: none;
+}
+
+</style>
+<body text="white">
+  <h2>Social Network Analysis</h2>
+  <p id='Account'>Account: ... </p>
+  <p id='Followers'>Followers: ... </p>
+  <svg width=1024 height=720></svg>
+  <p></p>
+  <script src="https://d3js.org/d3.v4.min.js"></script>
+  <script src="index.js"></script>
+</body>
